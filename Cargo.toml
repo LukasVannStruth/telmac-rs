@@ -1,0 +1,10 @@
+[package]
+name = "chip-8-rust"
+version = "0.1.0"
+authors = ["Lukas Vann Struth <lvannstruth@gmail.com>"]
+
+[dependencies]
+
+[lib]
+name = "chip8"
+path = "src/lib.rs"
