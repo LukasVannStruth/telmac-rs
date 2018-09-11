@@ -1,7 +1,7 @@
 use display::Display;
 use keypad::Keypad;
 use std::fs::File;
-use os;
+
 //use std::collections::HashMap;
 
 pub struct Cpu {
@@ -23,7 +23,7 @@ pub struct Cpu {
 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
 0x200-0xFFF - Program ROM and work RAM
 */
-fn read_word(memory: [u8; 4096], index: u16) -> u16 {
+fn read_opcode(memory: [u8; 4096], index: u16) -> u16 {
     (memory[index as usize] as u16) << 8
         | (memory[(index + 1) as usize] as u16)
 }
@@ -58,7 +58,7 @@ impl Cpu {
         new_cpu
     }
     pub fn execute_cycle(&mut self) {
-        let opcode: u16 = read_word(self.memory, self.program_counter);
+        let opcode: u16 = read_opcode(self.memory, self.program_counter);
         self.process_opcode(opcode);
     }   
     fn process_opcode(&mut self, opcode: u16) {
@@ -84,14 +84,93 @@ impl Cpu {
     }
 
     fn opcode_0xxx(&mut self) {}
-    fn opcode_1xxx(&mut self) {}
-    fn opcode_2xxx(&mut self) {}    
-    fn opcode_3xxx(&mut self) {}
-    fn opcode_4xxx(&mut self) {}
-    fn opcode_5xxx(&mut self) {}
-    fn opcode_6xxx(&mut self) {}
-    fn opcode_7xxx(&mut self) {}
-    fn opcode_8xxx(&mut self) {}
+
+    /// # Opcode 1xxx - JP addr
+    /// 
+    /// Jumps to the memory address specified in the latter 12 bits of the opcode.
+    fn opcode_1xxx(&mut self) {
+        self.program_counter = self.last12bits();
+    }
+    
+    /// # Opcode 2xxx - CALL addr
+    /// 
+    /// Calls the subroutine at the address nnn
+    fn opcode_2xxx(&mut self) {
+        self.stack[self.sp as usize] = self.program_counter;
+        self.sp += 1;
+        self.program_counter = self.last12bits();
+    }   
+
+    /// # Opcode 3xkk - SE Vx, 
+    /// 
+    /// Compares the register Vx and kk and if they're equal, it skips the next instruction.
+    fn opcode_3xxx(&mut self) {
+        if self.v[(self.opcode & 0x0F00) as usize] == self.last8bits() {
+            self.program_counter += 2;
+        } else {
+            self.program_counter += 1;
+        }
+    }
+
+    /// # Opcode 4xkk - SNE Vx, kk
+    /// 
+    /// Compares the register Vx and kk and if they're not equal, it skips the next instruction.
+    fn opcode_4xxx(&mut self) {
+        if self.v[(self.opcode & 0x0F00) as usize] != self.last8bits() {
+            self.program_counter += 2;
+        } else {
+            self.program_counter += 1;
+        }
+    }
+
+    /// # Opcode 5xy0 - SE Vx, Vy
+    /// 
+    /// Compares the registers Vx and Vy, and if they're equal it skips the next instruction.
+    fn opcode_5xxx(&mut self) {
+        if self.v[(self.opcode & 0x0F00) as usize] == self.v[(self.opcode & 0x00F0) as usize] {
+            self.program_counter += 2;
+        } else {
+            self.program_counter += 1;
+        }
+    }
+
+    /// # Opcode 6xkk - LD Vx, kk
+    /// 
+    /// Sets the value of register Vx to kk.
+    fn opcode_6xxx(&mut self) {
+        self.write_to_register(self.opcode & 0x0F00, (self.opcode & 0x00FF) as u8);
+        self.program_counter += 1;
+    }
+
+    /// # Opcode 7xkk - ADD Vx, kk
+    /// 
+    /// Adds the value kk to the register Vx
+    fn opcode_7xxx(&mut self) {
+        self.v[(self.opcode & 0xF000) as usize] += self.last8bits();
+        self.program_counter += 1;
+    }
+    
+    /// ## List of 8xxx Opcodes:
+    /// 
+    /// * 8xy0 - LD Vx, Vy - Stores the value of register Vy in Vx.
+    /// * 8xy1 - OR Vx, Vy - Performs a bitwise OR on Vx and Vy, and stores the result in Vx.
+    /// * 8xy2 - AND Vx, Vy - Performs a bitwise AND on Vx and Vy, and stores the result in Vx.
+    /// * 8xy3 - XOR Vx, Vy - Performs a bitwise XOR on Vx and Vy, and stores the result in Vx.
+    /// * 8xy4 - ADD Vx, Vy - Vx and Vy are added together. If the result is > 255(max value of a byte), Vf is set to 
+    /// 1 and otherwise 0. Only the lowest 8 bits of the result are kept and they are stored in Vx.
+    /// * 8xy5 - SUB Vx, Vy - If Vx > Vy, Vf is set to 1 otherwise 0. Then Vy is subtracted from Vx and the result is 
+    /// stored in Vx
+    /// * 8xy6 - SHR Vx - If the least significant bit of Vx is 1, then Vf is set to 1, otherwise 0. Vx is then 
+    /// divided by 2.
+    /// * 8xy7 - SUBN Vx, Vy - If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted
+    /// from Vy, and the results stored in Vx.
+    /// * 8xyE - SHL Vx - If the most-significant bit of Vx is 1, then VF is set to 1, otherwise 
+    /// to 0. Then Vx is multiplied by 2.
+    fn opcode_8xxx(&mut self) {
+        // match opcode & 0x000F {
+        //     0x0001 => 
+        // }
+    }
     fn opcode_9xxx(&mut self) {}
     fn opcode_Axxx(&mut self) {}
     fn opcode_Bxxx(&mut self) {}
@@ -100,6 +179,20 @@ impl Cpu {
     fn opcode_Exxx(&mut self) {}
     fn opcode_Fxxx(&mut self) {}
 
+    //TODO: Refactor all instances of registers changing to use this function. 
+    /// ## Writes a numeric value to a register. 
+    /// 
+    /// ### Arguments: 
+    /// 
+    /// * register: The hex digit in the opcode that indicates the register to change. 
+    /// * value: The value to change the register to. 
+    fn write_to_register(&mut self, register: u16, value: u8) {
+        self.v[(self.opcode & register) as usize] = value;
+    }
+    //TODO: Remove these funcitons along with their references in the code.
+    fn last4bits(&self) -> u8 {(self.opcode & 0x000F) as u8}
+    fn last8bits(&self) -> u8 {(self.opcode & 0x00FF) as u8}
+    fn last12bits(&self) -> u16 {self.opcode & 0x0FFF}
 }
 
 #[cfg(test)]
@@ -110,7 +203,7 @@ mod tests {
         let mut test_cpu = cpu::Cpu::new();
         test_cpu.memory[0] = 0b1111_0000;
         test_cpu.memory[1] = 0b0000_1111;
-        test_cpu.opcode = cpu::read_word(test_cpu.memory, 0);
+        test_cpu.opcode = cpu::read_opcode(test_cpu.memory, 0);
         assert_eq!(test_cpu.opcode, 0b1111_0000_0000_1111);
     }
 
