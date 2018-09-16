@@ -58,10 +58,11 @@ impl Cpu {
         new_cpu
     }
     pub fn execute_cycle(&mut self) {
-        let opcode: u16 = read_opcode(self.memory, self.program_counter);
-        self.process_opcode(opcode);
+        self.opcode = read_opcode(self.memory, self.program_counter);
+        self.process_opcode();
     }   
-    fn process_opcode(&mut self, opcode: u16) {
+    //TODO: determine if opcode needs to be parameter or can just be used as member.
+    fn process_opcode(&mut self/*, opcode: u16*/) {
         match self.opcode & 0xF000 {
             0x0000 => self.opcode_0xxx(),
             0x1000 => self.opcode_1xxx(),
@@ -78,8 +79,8 @@ impl Cpu {
             0xC000 => self.opcode_Cxxx(),
             0xD000 => self.opcode_Dxxx(),
             0xE000 => self.opcode_Exxx(),
-            0xF000 => self.opcode_Fxxx()
-            //TODO: implement not implemented error.
+            0xF000 => self.opcode_Fxxx(),
+            _      => self.unimplemented_opcode_exception()
         }
     }
 
@@ -138,7 +139,8 @@ impl Cpu {
     /// 
     /// Sets the value of register Vx to kk.
     fn opcode_6xxx(&mut self) {
-        self.write_to_register(self.opcode & 0x0F00, (self.opcode & 0x00FF) as u8);
+        let register_opcode = self.opcode;
+        self.write_to_register(register_opcode & 0x0F00, (register_opcode & 0x00FF) as u8);
         self.program_counter += 1;
     }
 
@@ -150,26 +152,57 @@ impl Cpu {
         self.program_counter += 1;
     }
     
+
+
     /// ## List of 8xxx Opcodes:
     /// 
     /// * 8xy0 - LD Vx, Vy - Stores the value of register Vy in Vx.
     /// * 8xy1 - OR Vx, Vy - Performs a bitwise OR on Vx and Vy, and stores the result in Vx.
     /// * 8xy2 - AND Vx, Vy - Performs a bitwise AND on Vx and Vy, and stores the result in Vx.
     /// * 8xy3 - XOR Vx, Vy - Performs a bitwise XOR on Vx and Vy, and stores the result in Vx.
-    /// * 8xy4 - ADD Vx, Vy - Vx and Vy are added together. If the result is > 255(max value of a byte), Vf is set to 
-    /// 1 and otherwise 0. Only the lowest 8 bits of the result are kept and they are stored in Vx.
-    /// * 8xy5 - SUB Vx, Vy - If Vx > Vy, Vf is set to 1 otherwise 0. Then Vy is subtracted from Vx and the result is 
-    /// stored in Vx
-    /// * 8xy6 - SHR Vx - If the least significant bit of Vx is 1, then Vf is set to 1, otherwise 0. Vx is then 
-    /// divided by 2.
+    /// * 8xy4 - ADD Vx, Vy - Vx and Vy are added together. If the result is > 255(max value of a 
+    /// byte), Vf is set to 1 and otherwise 0. Only the lowest 8 bits of the result are kept and 
+    /// they are stored in Vx.
+    /// * 8xy5 - SUB Vx, Vy - If Vx > Vy, Vf is set to 1 otherwise 0. Then Vy is subtracted from Vx 
+    /// and the result is stored in Vx
+    /// * 8xy6 - SHR Vx - If the least significant bit of Vx is 1, then Vf is set to 1, otherwise 0.
+    /// Vx is then divided by 2.
     /// * 8xy7 - SUBN Vx, Vy - If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted
     /// from Vy, and the results stored in Vx.
     /// * 8xyE - SHL Vx - If the most-significant bit of Vx is 1, then VF is set to 1, otherwise 
     /// to 0. Then Vx is multiplied by 2.
     fn opcode_8xxx(&mut self) {
-        // match opcode & 0x000F {
-        //     0x0001 => 
-        // }
+        match self.opcode & 0x000F {
+            //TODO: Strip newlines?
+            0x0000 => { 
+                self.write_to_register((self.opcode & 0x0F00), (self.opcode & 0x00F0));     
+            },
+            0x0001 => {
+                
+            },
+            0x0002 => {
+
+            },
+            0x0003 => {
+
+            },
+            0x0004 => {
+
+            },
+            0x0005 => {
+
+            },
+            0x0006 => {
+
+            },
+            0x0007 => {
+
+            },
+            0x000E => {
+
+            },
+            _     => self.unimplemented_opcode_exception()
+        }
     }
     fn opcode_9xxx(&mut self) {}
     fn opcode_Axxx(&mut self) {}
@@ -189,16 +222,26 @@ impl Cpu {
     fn write_to_register(&mut self, register: u16, value: u8) {
         self.v[(self.opcode & register) as usize] = value;
     }
-    //TODO: Remove these funcitons along with their references in the code.
+    
+    
+    //TODO: Rename these funcitons along with their references in the code.
     fn last4bits(&self) -> u8 {(self.opcode & 0x000F) as u8}
     fn last8bits(&self) -> u8 {(self.opcode & 0x00FF) as u8}
     fn last12bits(&self) -> u16 {self.opcode & 0x0FFF}
+    
+
+    fn unimplemented_opcode_exception(&self) {
+        println!("Error, opcode: {} not implemented", self.opcode);
+        
+        //TODO: fail gracefully
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use cpu;
     #[test]
+    //TODO: create tests for each opcode
     fn test_opcode_read() {
         let mut test_cpu = cpu::Cpu::new();
         test_cpu.memory[0] = 0b1111_0000;
