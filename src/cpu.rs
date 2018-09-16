@@ -1,6 +1,9 @@
+#![feature(test)]
+extern crate test;
+
 use display::Display;
 use keypad::Keypad;
-use std::fs::File;
+//use std::fs::File;
 
 //use std::collections::HashMap;
 
@@ -18,11 +21,7 @@ pub struct Cpu {
     pub keypad: Keypad,
     pub display: Display,
 }
-/* memory notes
-0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
-0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
-0x200-0xFFF - Program ROM and work RAM
-*/
+
 fn read_opcode(memory: [u8; 4096], index: u16) -> u16 {
     (memory[index as usize] as u16) << 8
         | (memory[(index + 1) as usize] as u16)
@@ -63,7 +62,7 @@ impl Cpu {
     }   
     //TODO: determine if opcode needs to be parameter or can just be used as member.
     fn process_opcode(&mut self/*, opcode: u16*/) {
-        match self.opcode & 0xF000 {
+        match self.get2opbytes(0xF000) {
             0x0000 => self.opcode_0xxx(),
             0x1000 => self.opcode_1xxx(),
             0x2000 => self.opcode_2xxx(),
@@ -90,7 +89,7 @@ impl Cpu {
     /// 
     /// Jumps to the memory address specified in the latter 12 bits of the opcode.
     fn opcode_1xxx(&mut self) {
-        self.program_counter = self.last12bits();
+        self.program_counter = self.get2opbytes(0x0FFF);
     }
     
     /// # Opcode 2xxx - CALL addr
@@ -99,14 +98,13 @@ impl Cpu {
     fn opcode_2xxx(&mut self) {
         self.stack[self.sp as usize] = self.program_counter;
         self.sp += 1;
-        self.program_counter = self.last12bits();
+        self.program_counter = self.get2opbytes(0x0FFF);
     }   
-
     /// # Opcode 3xkk - SE Vx, 
     /// 
     /// Compares the register Vx and kk and if they're equal, it skips the next instruction.
     fn opcode_3xxx(&mut self) {
-        if self.v[(self.opcode & 0x0F00) as usize] == self.last8bits() {
+        if self.v[(self.get2opbytes(0x0F00)) as usize] == self.getopbyte(0xFF) {
             self.program_counter += 2;
         } else {
             self.program_counter += 1;
@@ -117,7 +115,7 @@ impl Cpu {
     /// 
     /// Compares the register Vx and kk and if they're not equal, it skips the next instruction.
     fn opcode_4xxx(&mut self) {
-        if self.v[(self.opcode & 0x0F00) as usize] != self.last8bits() {
+        if self.v[(self.get2opbytes(0x0F00)) as usize] != self.getopbyte(0xFF) {
             self.program_counter += 2;
         } else {
             self.program_counter += 1;
@@ -128,7 +126,7 @@ impl Cpu {
     /// 
     /// Compares the registers Vx and Vy, and if they're equal it skips the next instruction.
     fn opcode_5xxx(&mut self) {
-        if self.v[(self.opcode & 0x0F00) as usize] == self.v[(self.opcode & 0x00F0) as usize] {
+        if self.v[(self.get2opbytes(0x0F00)) as usize] == self.v[(self.getopbyte(0xF0)) as usize] {
             self.program_counter += 2;
         } else {
             self.program_counter += 1;
@@ -139,8 +137,7 @@ impl Cpu {
     /// 
     /// Sets the value of register Vx to kk.
     fn opcode_6xxx(&mut self) {
-        let register_opcode = self.opcode;
-        self.write_to_register(register_opcode & 0x0F00, (register_opcode & 0x00FF) as u8);
+        self.write_to_register(self.get2opbytes(0x0F00), self.getopbyte(0xFF));
         self.program_counter += 1;
     }
 
@@ -148,7 +145,7 @@ impl Cpu {
     /// 
     /// Adds the value kk to the register Vx
     fn opcode_7xxx(&mut self) {
-        self.v[(self.opcode & 0xF000) as usize] += self.last8bits();
+        self.v[(self.get2opbytes(0x0F00)) as usize] += self.getopbyte(0xFF);
         self.program_counter += 1;
     }
     
@@ -172,10 +169,10 @@ impl Cpu {
     /// * 8xyE - SHL Vx - If the most-significant bit of Vx is 1, then VF is set to 1, otherwise 
     /// to 0. Then Vx is multiplied by 2.
     fn opcode_8xxx(&mut self) {
-        match self.opcode & 0x000F {
+        match self.getopbyte(0x0F) {
             //TODO: Strip newlines?
             0x0000 => { 
-                self.write_to_register((self.opcode & 0x0F00), (self.opcode & 0x00F0));     
+                self.write_to_register(self.get2opbytes(0x0F00), self.getopbyte(0xF0));     
             },
             0x0001 => {
                 
@@ -223,12 +220,13 @@ impl Cpu {
         self.v[(self.opcode & register) as usize] = value;
     }
     
-    
-    //TODO: Rename these funcitons along with their references in the code.
-    fn last4bits(&self) -> u8 {(self.opcode & 0x000F) as u8}
-    fn last8bits(&self) -> u8 {(self.opcode & 0x00FF) as u8}
-    fn last12bits(&self) -> u16 {self.opcode & 0x0FFF}
-    
+    fn get2opbytes(&self, bits: u16) -> u16 {
+        self.opcode & bits
+    }
+    //TODO: Error handling?
+    fn getopbyte(&self, bits: u8) -> u8 {
+        self.opcode as u8 & bits
+    }
 
     fn unimplemented_opcode_exception(&self) {
         println!("Error, opcode: {} not implemented", self.opcode);
@@ -240,6 +238,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use cpu;
+    use test::Bencher;
     #[test]
     //TODO: create tests for each opcode
     fn test_opcode_read() {
@@ -249,6 +248,10 @@ mod tests {
         test_cpu.opcode = cpu::read_opcode(test_cpu.memory, 0);
         assert_eq!(test_cpu.opcode, 0b1111_0000_0000_1111);
     }
+
+
+    //Benchmark Tests
+
 
 }
 
