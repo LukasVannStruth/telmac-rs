@@ -1,5 +1,3 @@
-extern crate test;
-
 use display::Display;
 use keypad::Keypad;
 //use std::fs::File;
@@ -234,7 +232,7 @@ impl Cpu {
     fn get2opbytes(&self, bits: u16) -> u16 {
         self.opcode & bits
     }
-    //TODO: Error handling?
+    //DECIDE: Error handling?
     fn getopbyte(&self, bits: u8) -> u8 {
         self.opcode as u8 & bits
     }
@@ -242,15 +240,15 @@ impl Cpu {
     fn unimplemented_opcode_exception(&self) {
         println!("Error, opcode: {} not implemented", self.opcode);
         
-        //TODO: fail gracefully
+        //TODO: fail gracefully 
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use cpu;
     use test::Bencher;
+
     #[test]
     //TODO: create tests for each opcode
     fn test_opcode_read() {
@@ -261,12 +259,34 @@ mod tests {
         assert_eq!(test_cpu.opcode, 0b1111_0000_0000_1111);
     }
 
+    #[test]
     fn test_get2opbytes() {
         let mut test_cpu = cpu::Cpu::new();
-
+        test_cpu.opcode = 0xF923;
+        let result = test_cpu.get2opbytes(0x00FF);
+        assert_eq!(0x0023, result);
     }
-    //Benchmark Tests
 
+    #[test]
+    fn test_getopbyte() {
+        let mut test_cpu = cpu::Cpu::new();
+        test_cpu.opcode = 0xF923;
+        let result = test_cpu.getopbyte(0x00FF);
+        assert_eq!(0x0023, result);
+    }
+
+    //Benchmark Tests
+    /*NOTE: These are here because I wanted to see what would be faster out of curiosity but they
+    both run in under a nanosecond.
+    */
+    #[bench]
+    fn bench_get2opbytes(b: &mut Bencher) {
+        b.iter(|| test_get2opbytes())
+    }
+    #[bench]
+    fn bench_getopbyte(b: &mut Bencher) {
+        b.iter(|| test_getopbyte())
+    }
 
 }
 

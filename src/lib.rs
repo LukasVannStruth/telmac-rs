@@ -1,5 +1,7 @@
 #![feature(test)]
 
+extern crate test;
+
 pub mod cpu;
 pub mod display;
 pub mod keypad;
