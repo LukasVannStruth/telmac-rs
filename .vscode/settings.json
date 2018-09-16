@@ -4,5 +4,7 @@
     ],
     "workbench.colorCustomizations": {
         "editorRuler.foreground": "#4c5157"
-    }
+    },
+    "rust.unstable_features": true
+    
 }

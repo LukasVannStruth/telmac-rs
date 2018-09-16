@@ -1,5 +1,5 @@
-extern crate chip8;
-use chip8::cpu::Cpu;
+extern crate telmacrs;
+//use telmacrs::cpu::Cpu;
 
 fn main() {
 /* notes from 

@@ -1,4 +1,3 @@
-#![feature(test)]
 extern crate test;
 
 use display::Display;
@@ -137,7 +136,10 @@ impl Cpu {
     /// 
     /// Sets the value of register Vx to kk.
     fn opcode_6xxx(&mut self) {
-        self.write_to_register(self.get2opbytes(0x0F00), self.getopbyte(0xFF));
+        //NOTE: Because you can't borrow self mutably and immutably at the same time, getxopbyte
+        //doesn't work here because it borrows immutably.
+        let register_opcode = self.opcode;
+        self.write_to_register(register_opcode & 0x0F00, (register_opcode & 0x00FF) as u8);
         self.program_counter += 1;
     }
 
@@ -169,13 +171,15 @@ impl Cpu {
     /// * 8xyE - SHL Vx - If the most-significant bit of Vx is 1, then VF is set to 1, otherwise 
     /// to 0. Then Vx is multiplied by 2.
     fn opcode_8xxx(&mut self) {
+        let register_opcode = self.opcode;
         match self.getopbyte(0x0F) {
             //TODO: Strip newlines?
-            0x0000 => { 
-                self.write_to_register(self.get2opbytes(0x0F00), self.getopbyte(0xF0));     
+            0x0000 => {
+                self.write_to_register(register_opcode & 0x0F00, (register_opcode & 0x00F0) as u8);   
             },
             0x0001 => {
                 
+                // self.write_to_register(register_opcode & 0x0F00, value: u8)
             },
             0x0002 => {
 
@@ -202,13 +206,20 @@ impl Cpu {
         }
     }
     fn opcode_9xxx(&mut self) {}
-    fn opcode_Axxx(&mut self) {}
-    fn opcode_Bxxx(&mut self) {}
-    fn opcode_Cxxx(&mut self) {}
-    fn opcode_Dxxx(&mut self) {}
-    fn opcode_Exxx(&mut self) {}
-    fn opcode_Fxxx(&mut self) {}
 
+    #[allow(non_snake_case)]
+    fn opcode_Axxx(&mut self) {}
+    #[allow(non_snake_case)]
+    fn opcode_Bxxx(&mut self) {}
+    #[allow(non_snake_case)]
+    fn opcode_Cxxx(&mut self) {}
+    #[allow(non_snake_case)]
+    fn opcode_Dxxx(&mut self) {}
+    #[allow(non_snake_case)]
+    fn opcode_Exxx(&mut self) {}
+    #[allow(non_snake_case)]
+    fn opcode_Fxxx(&mut self) {}
+    
     //TODO: Refactor all instances of registers changing to use this function. 
     /// ## Writes a numeric value to a register. 
     /// 
@@ -237,6 +248,7 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
+
     use cpu;
     use test::Bencher;
     #[test]
@@ -249,7 +261,10 @@ mod tests {
         assert_eq!(test_cpu.opcode, 0b1111_0000_0000_1111);
     }
 
+    fn test_get2opbytes() {
+        let mut test_cpu = cpu::Cpu::new();
 
+    }
     //Benchmark Tests
 
 
