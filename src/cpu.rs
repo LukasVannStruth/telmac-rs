@@ -233,6 +233,7 @@ impl Cpu {
     fn opcode_9xxx(&mut self) {
         let x_register: u8 = (self.opcode >> 8) as u8;
         let y_register: u8 = (self.opcode & 0x00F0) as u8;
+        // FIXME: change this when refactoring x_register into functions.
         if self.get_register((self.get2opbytes(0x0F00) >> 8) as u8) != 
            self.get_register(self.getopbyte(0xF0)) {
                self.program_counter += 2;
