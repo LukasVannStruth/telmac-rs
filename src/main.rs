@@ -1,4 +1,4 @@
-extern crate telmacrs;
+extern crate telmac_rs;
 //use telmacrs::cpu::Cpu;
 
 fn main() {

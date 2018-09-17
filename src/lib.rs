@@ -1,5 +1,5 @@
 #![feature(test)]
-
+#![feature(tool_lints)]
 extern crate test;
 
 pub mod cpu;

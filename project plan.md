@@ -1,4 +1,4 @@
-# CHIP-8 Emulator(name pending)
+# telmac-rs
 
 ## Objectives
 

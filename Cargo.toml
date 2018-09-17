@@ -1,11 +1,11 @@
 [package]
-name = "telmacrs"
+name = "telmac_rs"
 version = "0.1.0"
 authors = ["Lukas Vann Struth <lvannstruth@gmail.com>"]
 
 [dependencies]
 
 [lib]
-name = "telmacrs"
+name = "telmac_rs"
 path = "src/lib.rs"
 
